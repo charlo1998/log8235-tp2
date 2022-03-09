@@ -70,33 +70,38 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
     GetWorld()->SweepMultiByObjectType(allDetectionHits, detectionStartLocation, detectionEndLocation, FQuat::Identity, detectionTraceObjectTypes, FCollisionShape::MakeSphere(m_DetectionCapsuleRadius));
 
     FHitResult detectionHit;
-    GetHightestPriorityDetectionHit(allDetectionHits, detectionHit);
+    bool hit = GetHightestPriorityDetectionHit(allDetectionHits, detectionHit);
+    if (hit)
+    {
+        FVector target;
+        //Set behavior based on hit
+        if (detectionHit.GetComponent()->GetCollisionObjectType() == COLLISION_PLAYER)
+        {
+            //found a player, check if powered up and adapt
+            target = playerCharacter->GetActorLocation();
+            if (mainCharacter->IsPoweredUp())
+            {
+                //determine a smart location to flee and go there
+            }
+            else
+            {
+                //compute path to player and go there
+            }
+        }
+        else if (detectionHit.GetComponent()->GetCollisionObjectType() == COLLISION_COLLECTIBLE)
+        {
+            // go to collectible
+        }
+    }
 
-    FVector target;
-    //Set behavior based on hit
-    if (detectionHit.GetComponent()->GetCollisionObjectType() == COLLISION_PLAYER)
-    {
-        //found a player, check if powered up and adapt
-        target = playerCharacter->GetActorLocation();
-        if (mainCharacter->IsPoweredUp())
-        {
-            //determine a smart location to flee and go there
-        }
-        else
-        {
-            //compute path to player and go there
-        }
-    }
-    else if (detectionHit.GetComponent()->GetCollisionObjectType() == COLLISION_COLLECTIBLE)
-    {
-        // go to collectible
-    }
+
 
     DrawDebugCapsule(GetWorld(), detectionStartLocation + m_DetectionCapsuleHalfLength * selfPawn->GetActorForwardVector(), m_DetectionCapsuleHalfLength, m_DetectionCapsuleRadius, selfPawn->GetActorQuat() * selfPawn->GetActorUpVector().ToOrientationQuat(), FColor::Blue);
 }
 
-void ASDTAIController::GetHightestPriorityDetectionHit(const TArray<FHitResult>& hits, FHitResult& outDetectionHit)
+ bool ASDTAIController::GetHightestPriorityDetectionHit(const TArray<FHitResult>& hits, FHitResult& outDetectionHit)
 {
+    bool out = false;
     for (const FHitResult& hit : hits)
     {
         if (UPrimitiveComponent* component = hit.GetComponent())
@@ -105,14 +110,16 @@ void ASDTAIController::GetHightestPriorityDetectionHit(const TArray<FHitResult>&
             {
                 //we can't get more important than the player
                 outDetectionHit = hit;
-                return;
+                return true;
             }
             else if (component->GetCollisionObjectType() == COLLISION_COLLECTIBLE)
             {
                 outDetectionHit = hit;
+                out = true;
             }
         }
     }
+    return out;
 }
 
 void ASDTAIController::AIStateInterrupted()
