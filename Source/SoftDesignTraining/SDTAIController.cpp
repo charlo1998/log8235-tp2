@@ -12,9 +12,34 @@
 #include "SDTUtils.h"
 #include "EngineUtils.h"
 
+//TArray<FOverlapResult> ASDTAIController::CollectTargetActorsInFrontOfCharacter(ASoftDesignTrainingCharacter const* chr, PhysicsHelpers& physicHelper, float frwd) const
+//{
+//    TArray<FOverlapResult> outResults;
+//    physicHelper.SphereOverlap(chr->GetActorLocation() + chr->GetActorForwardVector() * frwd, chr->2000F., outResults, true, physicHelper.RayCastChannel::default);
+//    return outResults;
+//}
+
 ASDTAIController::ASDTAIController(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer.SetDefaultSubobjectClass<USDTPathFollowingComponent>(TEXT("PathFollowingComponent")))
 {
+
+}
+
+FVector ASDTAIController::FindFleeLocation(APawn* selfPawn, bool &found, FVector sphereLocation)
+{
+    FVector target = selfPawn->GetActorLocation();
+
+    TArray<AActor*> fleeLocations;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ASDTFleeLocation::StaticClass(), fleeLocations);
+    for (const AActor* fleeLocation : fleeLocations)
+    {
+        if ((fleeLocation->GetActorLocation() - sphereLocation).Size() < fleeSphereRadius)
+        {
+            found = true;
+            target = fleeLocation->GetActorLocation();
+        }
+    }
+    return target;
 }
 
 void ASDTAIController::GoToBestTarget(float deltaTime)
@@ -41,6 +66,7 @@ void ASDTAIController::ShowNavigationPath()
 
 void ASDTAIController::ChooseBehavior(float deltaTime)
 {
+    //add states here? possible states: pursuing, fleeing, collecting collectible, default
     UpdatePlayerInteraction(deltaTime);
 }
 
@@ -70,22 +96,34 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
     GetWorld()->SweepMultiByObjectType(allDetectionHits, detectionStartLocation, detectionEndLocation, FQuat::Identity, detectionTraceObjectTypes, FCollisionShape::MakeSphere(m_DetectionCapsuleRadius));
 
     FHitResult detectionHit;
+    FVector sphereLocation;
     bool hit = GetHightestPriorityDetectionHit(allDetectionHits, detectionHit);
-    if (hit)
+    if (hit) //if no player or collectible is seen, continue exploring
     {
         FVector target;
+        bool fleeLocationDetected = false;
         //Set behavior based on hit
         if (detectionHit.GetComponent()->GetCollisionObjectType() == COLLISION_PLAYER)
         {
             //found a player, check if powered up and adapt
-            target = playerCharacter->GetActorLocation();
             if (mainCharacter->IsPoweredUp())
             {
-                //determine a smart location to flee and go there
+                //check for a flee location in a sphere behind agent, then compute path
+                sphereLocation = selfPawn->GetActorLocation() - selfPawn->GetActorForwardVector() * OffSet;
+                DrawDebugSphere(GetWorld(), sphereLocation, fleeSphereRadius, 100, FColor::Red);
+                target = FindFleeLocation(selfPawn, fleeLocationDetected, sphereLocation);
+
+                if (!fleeLocationDetected) //didn't find a flee location behind him, looking slightly to the right
+                {
+                    sphereLocation = selfPawn->GetActorLocation() - selfPawn->GetActorRightVector() * OffSet;
+                    DrawDebugSphere(GetWorld(), sphereLocation, fleeSphereRadius, 100, FColor::Red);
+                    target = FindFleeLocation(selfPawn, fleeLocationDetected, sphereLocation);
+                }
             }
             else
             {
                 //compute path to player and go there
+                target = playerCharacter->GetActorLocation();
             }
         }
         else if (detectionHit.GetComponent()->GetCollisionObjectType() == COLLISION_COLLECTIBLE)
@@ -93,8 +131,6 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
             // go to collectible
         }
     }
-
-
 
     DrawDebugCapsule(GetWorld(), detectionStartLocation + m_DetectionCapsuleHalfLength * selfPawn->GetActorForwardVector(), m_DetectionCapsuleHalfLength, m_DetectionCapsuleRadius, selfPawn->GetActorQuat() * selfPawn->GetActorUpVector().ToOrientationQuat(), FColor::Blue);
 }

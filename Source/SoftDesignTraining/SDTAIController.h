@@ -6,6 +6,7 @@
 #include "SDTBaseAIController.h"
 #include "SDTAIController.generated.h"
 
+
 /**
  * 
  */
@@ -52,6 +53,9 @@ protected:
     void OnMoveToTarget();
     bool GetHightestPriorityDetectionHit(const TArray<FHitResult>& hits, FHitResult& outDetectionHit);
     void UpdatePlayerInteraction(float deltaTime);
+    FVector FindFleeLocation(APawn* selfPawn, bool& found, FVector sphereLocation);
+    float OffSet = 1450.f;
+    float fleeSphereRadius = 1350.f;
 
 private:
     virtual void GoToBestTarget(float deltaTime) override;

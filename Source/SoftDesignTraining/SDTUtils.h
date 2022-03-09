@@ -5,6 +5,7 @@
 #include "AI/Navigation/NavigationTypes.h"
 #include "NavMesh/NavMeshPath.h"
 
+#define COLLISION_FLEE_LOCATION     ECollisionChannel::ECC_GameTraceChannel2
 #define COLLISION_DEATH_OBJECT		ECollisionChannel::ECC_GameTraceChannel3
 #define COLLISION_PLAYER        	ECollisionChannel::ECC_GameTraceChannel4
 #define COLLISION_COLLECTIBLE     	ECollisionChannel::ECC_GameTraceChannel5
