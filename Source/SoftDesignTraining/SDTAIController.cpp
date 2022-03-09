@@ -2,6 +2,7 @@
 
 #include "SDTAIController.h"
 #include "SoftDesignTraining.h"
+#include "SoftDesignTrainingMainCharacter.h"
 #include "SDTCollectible.h"
 #include "SDTFleeLocation.h"
 #include "SDTPathFollowingComponent.h"
@@ -54,6 +55,7 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
         return;
 
     ACharacter* playerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+    ASoftDesignTrainingMainCharacter* mainCharacter = dynamic_cast<ASoftDesignTrainingMainCharacter*>(playerCharacter);
     if (!playerCharacter)
         return;
 
@@ -70,7 +72,25 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
     FHitResult detectionHit;
     GetHightestPriorityDetectionHit(allDetectionHits, detectionHit);
 
+    FVector target;
     //Set behavior based on hit
+    if (detectionHit.GetComponent()->GetCollisionObjectType() == COLLISION_PLAYER)
+    {
+        //found a player, check if powered up and adapt
+        target = playerCharacter->GetActorLocation();
+        if (mainCharacter->IsPoweredUp())
+        {
+            //determine a smart location to flee and go there
+        }
+        else
+        {
+            //compute path to player and go there
+        }
+    }
+    else if (detectionHit.GetComponent()->GetCollisionObjectType() == COLLISION_COLLECTIBLE)
+    {
+        // go to collectible
+    }
 
     DrawDebugCapsule(GetWorld(), detectionStartLocation + m_DetectionCapsuleHalfLength * selfPawn->GetActorForwardVector(), m_DetectionCapsuleHalfLength, m_DetectionCapsuleRadius, selfPawn->GetActorQuat() * selfPawn->GetActorUpVector().ToOrientationQuat(), FColor::Blue);
 }
