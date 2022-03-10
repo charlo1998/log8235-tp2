@@ -64,4 +64,5 @@ private:
     virtual void ChooseBehavior(float deltaTime) override;
     virtual void ShowNavigationPath() override;
     virtual ASDTCollectible* FindClosestCollectible();
+    virtual void MoveCharacter(UNavigationPath* path);
 };

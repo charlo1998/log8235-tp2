@@ -53,23 +53,15 @@ void ASDTAIController::GoToBestTarget(float deltaTime)
         UNavigationSystemV1* navSys = UNavigationSystemV1::GetCurrent(GetWorld());
         UNavigationPath* path = navSys->FindPathToLocationSynchronously(GetWorld(), GetPawn()->GetActorLocation(), targetCollectible->GetActorLocation());
 
-        //Draw debug path (should be in ShowNavigationPath)
-        if (path)
-        {
-            FVector previousNode = GetPawn()->GetActorLocation();
-            for (int pointiter = 0; pointiter < path->PathPoints.Num(); pointiter++)
-            {
-                DrawDebugSphere(GetWorld(), path->PathPoints[pointiter], 30.0f, 12, FColor(255, 0, 0));
-                DrawDebugLine(GetWorld(), previousNode, path->PathPoints[pointiter], FColor(255, 0, 0));
-                previousNode = path->PathPoints[pointiter];
-            }
-        }
-
         //Trying to send the path to PathFollowingComponenent
-        //GetPathFollowingComponent()->RequestMove(FAIMoveRequest(GetPawn()), path->GetPath());
+        GetPathFollowingComponent()->RequestMove(FAIMoveRequest(GetPawn()), path->GetPath());
+
+        MoveCharacter(path);
+        ShowNavigationPath();
     }
 
-    //GetPathFollowingComponent()->FollowPathSegment(deltaTime);
+    USDTPathFollowingComponent* pathFol = dynamic_cast<USDTPathFollowingComponent*>(GetPathFollowingComponent());
+    pathFol->FollowPathSegment(deltaTime);
 }
 
 void ASDTAIController::OnMoveToTarget()
@@ -86,7 +78,17 @@ void ASDTAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFollow
 
 void ASDTAIController::ShowNavigationPath()
 {
-
+    TArray<FNavPathPoint>& path = GetPathFollowingComponent()->GetPath()->GetPathPoints();
+    if (path.Num() > 0)
+    {
+        FVector previousNode = GetPawn()->GetActorLocation();
+        for (int pointiter = 0; pointiter < path.Num(); pointiter++)
+        {
+            DrawDebugSphere(GetWorld(), path[pointiter], 30.0f, 12, FColor(255, 0, 0));
+            DrawDebugLine(GetWorld(), previousNode, path[pointiter], FColor(255, 0, 0));
+            previousNode = path[pointiter];
+        }
+    }
 }
 
 void ASDTAIController::ChooseBehavior(float deltaTime)
@@ -186,7 +188,6 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
 
 void ASDTAIController::AIStateInterrupted()
 {
-    UE_LOG(LogTemp, Warning, TEXT("Hello"));
     StopMovement();
     m_ReachedTarget = true;
 }
@@ -221,4 +222,27 @@ ASDTCollectible* ASDTAIController::FindClosestCollectible()
     }
 
     return closestCollectible;
+}
+
+//Temporary function to move the character
+void ASDTAIController::MoveCharacter(UNavigationPath* path)
+{
+    FVector direction;
+
+    if (path->PathPoints.Num() < 3 || FVector::Distance(path->PathPoints[1], path->PathPoints[0]) > 95.0f)
+        direction = path->PathPoints[1] - GetPawn()->GetActorLocation();
+    else
+        direction = path->PathPoints[2] - GetPawn()->GetActorLocation();
+
+    direction.Normalize();
+
+    if (direction.Size() < 1)
+    {
+        direction /= direction.Size();
+    }
+
+
+    FVector newLoc = GetPawn()->GetActorLocation() + (direction * 2.5f);
+
+    GetPawn()->SetActorLocation(newLoc);
 }
