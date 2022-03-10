@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "SDTBaseAIController.h"
+#include "SDTCollectible.h"
 #include "SDTAIController.generated.h"
 
 
@@ -58,7 +59,9 @@ protected:
     float fleeSphereRadius = 1350.f;
 
 private:
+    ASDTCollectible* targetCollectible = NULL;
     virtual void GoToBestTarget(float deltaTime) override;
     virtual void ChooseBehavior(float deltaTime) override;
     virtual void ShowNavigationPath() override;
+    virtual ASDTCollectible* FindClosestCollectible();
 };

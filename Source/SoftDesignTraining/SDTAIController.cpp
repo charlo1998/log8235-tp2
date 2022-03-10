@@ -8,6 +8,7 @@
 #include "SDTPathFollowingComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "NavigationSystem.h"
 //#include "UnrealMathUtility.h"
 #include "SDTUtils.h"
 #include "EngineUtils.h"
@@ -44,7 +45,31 @@ FVector ASDTAIController::FindFleeLocation(APawn* selfPawn, bool &found, FVector
 
 void ASDTAIController::GoToBestTarget(float deltaTime)
 {
-    //Move to target depending on current behavior
+    targetCollectible = FindClosestCollectible();
+
+    if (targetCollectible)
+    {
+        //TODO: Consider nav links in part 5
+        UNavigationSystemV1* navSys = UNavigationSystemV1::GetCurrent(GetWorld());
+        UNavigationPath* path = navSys->FindPathToLocationSynchronously(GetWorld(), GetPawn()->GetActorLocation(), targetCollectible->GetActorLocation());
+
+        //Draw debug path (should be in ShowNavigationPath)
+        if (path)
+        {
+            FVector previousNode = GetPawn()->GetActorLocation();
+            for (int pointiter = 0; pointiter < path->PathPoints.Num(); pointiter++)
+            {
+                DrawDebugSphere(GetWorld(), path->PathPoints[pointiter], 30.0f, 12, FColor(255, 0, 0));
+                DrawDebugLine(GetWorld(), previousNode, path->PathPoints[pointiter], FColor(255, 0, 0));
+                previousNode = path->PathPoints[pointiter];
+            }
+        }
+
+        //Trying to send the path to PathFollowingComponenent
+        //GetPathFollowingComponent()->RequestMove(FAIMoveRequest(GetPawn()), path->GetPath());
+    }
+
+    //GetPathFollowingComponent()->FollowPathSegment(deltaTime);
 }
 
 void ASDTAIController::OnMoveToTarget()
@@ -61,7 +86,7 @@ void ASDTAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFollow
 
 void ASDTAIController::ShowNavigationPath()
 {
-    //Show current navigation path DrawDebugLine and DrawDebugSphere
+
 }
 
 void ASDTAIController::ChooseBehavior(float deltaTime)
@@ -150,6 +175,7 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
             }
             else if (component->GetCollisionObjectType() == COLLISION_COLLECTIBLE)
             {
+
                 outDetectionHit = hit;
                 out = true;
             }
@@ -160,6 +186,39 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
 
 void ASDTAIController::AIStateInterrupted()
 {
+    UE_LOG(LogTemp, Warning, TEXT("Hello"));
     StopMovement();
     m_ReachedTarget = true;
+}
+
+ASDTCollectible* ASDTAIController::FindClosestCollectible()
+{
+    FVector chrLocation = GetPawn()->GetActorLocation();
+
+    ASDTCollectible* closestCollectible = NULL;
+    float collectibleDistance = 0;
+
+    for (TActorIterator<AActor> actor(GetWorld()); actor; ++actor)
+    {
+        if (ASDTCollectible* collectible = dynamic_cast<ASDTCollectible*>(*actor))
+        {
+            if (!collectible->IsOnCooldown())
+            {
+                float distance = FVector::Dist(chrLocation, collectible->GetActorLocation());
+                if (closestCollectible == NULL)
+                {
+                    closestCollectible = collectible;
+                    collectibleDistance = distance;
+                }
+                else if (distance < collectibleDistance)
+                {
+                    closestCollectible = collectible;
+                    collectibleDistance = distance;
+                }
+            }
+                
+        }
+    }
+
+    return closestCollectible;
 }
