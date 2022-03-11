@@ -69,17 +69,17 @@ void ASDTAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFollow
 
 void ASDTAIController::ShowNavigationPath()
 {
-    TArray<FNavPathPoint>& path = GetPathFollowingComponent()->GetPath()->GetPathPoints();
-    if (path.Num() > 0)
-    {
-        FVector previousNode = GetPawn()->GetActorLocation();
-        for (int pointiter = 0; pointiter < path.Num(); pointiter++)
-        {
-            DrawDebugSphere(GetWorld(), path[pointiter], 30.0f, 12, FColor(255, 0, 0));
-            DrawDebugLine(GetWorld(), previousNode, path[pointiter], FColor(255, 0, 0));
-            previousNode = path[pointiter];
-        }
-    }
+    //TArray<FNavPathPoint>& path = GetPathFollowingComponent()->GetPath()->GetPathPoints();
+    //if (path.Num() > 0)
+    //{
+    //    FVector previousNode = GetPawn()->GetActorLocation();
+    //    for (int pointiter = 0; pointiter < path.Num(); pointiter++)
+    //    {
+    //        DrawDebugSphere(GetWorld(), path[pointiter], 30.0f, 12, FColor(255, 0, 0));
+    //        DrawDebugLine(GetWorld(), previousNode, path[pointiter], FColor(255, 0, 0));
+    //        previousNode = path[pointiter];
+    //    }
+    //}
 }
 
 void ASDTAIController::ChooseBehavior(float deltaTime)
