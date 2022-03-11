@@ -13,12 +13,6 @@
 #include "SDTUtils.h"
 #include "EngineUtils.h"
 
-//TArray<FOverlapResult> ASDTAIController::CollectTargetActorsInFrontOfCharacter(ASoftDesignTrainingCharacter const* chr, PhysicsHelpers& physicHelper, float frwd) const
-//{
-//    TArray<FOverlapResult> outResults;
-//    physicHelper.SphereOverlap(chr->GetActorLocation() + chr->GetActorForwardVector() * frwd, chr->2000F., outResults, true, physicHelper.RayCastChannel::default);
-//    return outResults;
-//}
 
 ASDTAIController::ASDTAIController(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer.SetDefaultSubobjectClass<USDTPathFollowingComponent>(TEXT("PathFollowingComponent")))
@@ -28,7 +22,7 @@ ASDTAIController::ASDTAIController(const FObjectInitializer& ObjectInitializer)
 
 FVector ASDTAIController::FindFleeLocation(APawn* selfPawn, bool &found, FVector sphereLocation)
 {
-    FVector target = selfPawn->GetActorLocation();
+    FVector location = selfPawn->GetActorLocation();
 
     TArray<AActor*> fleeLocations;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), ASDTFleeLocation::StaticClass(), fleeLocations);
@@ -37,28 +31,25 @@ FVector ASDTAIController::FindFleeLocation(APawn* selfPawn, bool &found, FVector
         if ((fleeLocation->GetActorLocation() - sphereLocation).Size() < fleeSphereRadius)
         {
             found = true;
-            target = fleeLocation->GetActorLocation();
+            location = fleeLocation->GetActorLocation();
         }
     }
-    return target;
+    return location;
 }
 
 void ASDTAIController::GoToBestTarget(float deltaTime)
 {
-    targetCollectible = FindClosestCollectible();
 
-    if (targetCollectible)
-    {
-        //TODO: Consider nav links in part 5
-        UNavigationSystemV1* navSys = UNavigationSystemV1::GetCurrent(GetWorld());
-        UNavigationPath* path = navSys->FindPathToLocationSynchronously(GetWorld(), GetPawn()->GetActorLocation(), targetCollectible->GetActorLocation());
+    //TODO: Consider nav links in part 5
+    UNavigationSystemV1* navSys = UNavigationSystemV1::GetCurrent(GetWorld());
+    UNavigationPath* path = navSys->FindPathToLocationSynchronously(GetWorld(), GetPawn()->GetActorLocation(), target);
 
-        //Trying to send the path to PathFollowingComponenent
-        GetPathFollowingComponent()->RequestMove(FAIMoveRequest(GetPawn()), path->GetPath());
+    //Trying to send the path to PathFollowingComponenent
+    GetPathFollowingComponent()->RequestMove(FAIMoveRequest(GetPawn()), path->GetPath());
 
-        MoveCharacter(path);
-        ShowNavigationPath();
-    }
+    MoveCharacter(path);
+    ShowNavigationPath();
+
 
     USDTPathFollowingComponent* pathFol = dynamic_cast<USDTPathFollowingComponent*>(GetPathFollowingComponent());
     pathFol->FollowPathSegment(deltaTime);
@@ -125,38 +116,45 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
     FHitResult detectionHit;
     FVector sphereLocation;
     bool hit = GetHightestPriorityDetectionHit(allDetectionHits, detectionHit);
-    if (hit) //if no player or collectible is seen, continue exploring
+    if (hit) //if a player is seen, update behavior
     {
-        FVector target;
+        
         bool fleeLocationDetected = false;
-        //Set behavior based on hit
-        if (detectionHit.GetComponent()->GetCollisionObjectType() == COLLISION_PLAYER)
+        //found a player, check if powered up and adapt
+        if (mainCharacter->IsPoweredUp())
         {
-            //found a player, check if powered up and adapt
-            if (mainCharacter->IsPoweredUp())
+            m_Pursuing = false;
+            m_Fleeing = true;
+            //check for a flee location in a sphere behind agent, then compute path
+            sphereLocation = selfPawn->GetActorLocation() - selfPawn->GetActorForwardVector() * OffSet;
+            DrawDebugSphere(GetWorld(), sphereLocation, fleeSphereRadius, 100, FColor::Red);
+            target = FindFleeLocation(selfPawn, fleeLocationDetected, sphereLocation);
+            
+
+            if (!fleeLocationDetected) //didn't find a flee location behind him, looking slightly to the left
             {
-                //check for a flee location in a sphere behind agent, then compute path
-                sphereLocation = selfPawn->GetActorLocation() - selfPawn->GetActorForwardVector() * OffSet;
+                sphereLocation = selfPawn->GetActorLocation() - selfPawn->GetActorRightVector() * OffSet;
                 DrawDebugSphere(GetWorld(), sphereLocation, fleeSphereRadius, 100, FColor::Red);
                 target = FindFleeLocation(selfPawn, fleeLocationDetected, sphereLocation);
-
-                if (!fleeLocationDetected) //didn't find a flee location behind him, looking slightly to the right
-                {
-                    sphereLocation = selfPawn->GetActorLocation() - selfPawn->GetActorRightVector() * OffSet;
-                    DrawDebugSphere(GetWorld(), sphereLocation, fleeSphereRadius, 100, FColor::Red);
-                    target = FindFleeLocation(selfPawn, fleeLocationDetected, sphereLocation);
-                }
-            }
-            else
-            {
-                //compute path to player and go there
-                target = playerCharacter->GetActorLocation();
             }
         }
-        else if (detectionHit.GetComponent()->GetCollisionObjectType() == COLLISION_COLLECTIBLE)
+        else
         {
-            // go to collectible
+            //compute path to player and go there
+            target = playerCharacter->GetActorLocation();
+            m_Pursuing = true;
+            m_Fleeing = false;
         }
+    }
+    else if (!m_Fleeing && !m_Pursuing) //if no player is seen and agent is not fleeing or pursuing the last location, find the closest collectible
+    {
+        target = FindClosestCollectible()->GetActorLocation();
+    }
+
+    if ((selfPawn->GetActorLocation() - target).Size() <= 10.f) //if agent reached its target, go back to default state
+    {
+        m_Pursuing = false;
+        m_Fleeing = false;
     }
 
     DrawDebugCapsule(GetWorld(), detectionStartLocation + m_DetectionCapsuleHalfLength * selfPawn->GetActorForwardVector(), m_DetectionCapsuleHalfLength, m_DetectionCapsuleRadius, selfPawn->GetActorQuat() * selfPawn->GetActorUpVector().ToOrientationQuat(), FColor::Blue);
@@ -175,12 +173,12 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
                 outDetectionHit = hit;
                 return true;
             }
-            else if (component->GetCollisionObjectType() == COLLISION_COLLECTIBLE)
-            {
+            //else if (component->GetCollisionObjectType() == COLLISION_COLLECTIBLE) //not needed, since we don't use vision to find collectibles anymore
+            //{
 
-                outDetectionHit = hit;
-                out = true;
-            }
+            //    outDetectionHit = hit;
+            //    out = true;
+            //}
         }
     }
     return out;

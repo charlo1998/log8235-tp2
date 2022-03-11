@@ -18,12 +18,16 @@ public:
 
     ASDTBaseAIController(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
     virtual void Tick(float deltaTime) override;
+    bool m_Fleeing;
+    bool m_Pursuing;
+    FVector target;
 	
 protected:
     virtual void RotationUpdate(float deltaTime) {};
     virtual void ImpulseToDirection(float deltaTime) {};
 
     bool m_ReachedTarget;
+
 private:
     virtual void GoToBestTarget(float deltaTime) {};
     virtual void ChooseBehavior(float deltaTime) {};
