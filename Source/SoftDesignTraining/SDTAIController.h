@@ -59,7 +59,6 @@ protected:
     float fleeSphereRadius = 1350.f;
 
 private:
-    ASDTCollectible* targetCollectible = NULL;
     virtual void GoToBestTarget(float deltaTime) override;
     virtual void ChooseBehavior(float deltaTime) override;
     virtual void ShowNavigationPath() override;

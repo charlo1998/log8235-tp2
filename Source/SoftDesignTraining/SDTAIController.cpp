@@ -50,9 +50,7 @@ void ASDTAIController::GoToBestTarget(float deltaTime)
     MoveCharacter(path);
     ShowNavigationPath();
 
-
     USDTPathFollowingComponent* pathFol = dynamic_cast<USDTPathFollowingComponent*>(GetPathFollowingComponent());
-    pathFol->FollowPathSegment(deltaTime);
 }
 
 void ASDTAIController::OnMoveToTarget()
@@ -68,18 +66,21 @@ void ASDTAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFollow
 }
 
 void ASDTAIController::ShowNavigationPath()
-{
-    //TArray<FNavPathPoint>& path = GetPathFollowingComponent()->GetPath()->GetPathPoints();
-    //if (path.Num() > 0)
-    //{
-    //    FVector previousNode = GetPawn()->GetActorLocation();
-    //    for (int pointiter = 0; pointiter < path.Num(); pointiter++)
-    //    {
-    //        DrawDebugSphere(GetWorld(), path[pointiter], 30.0f, 12, FColor(255, 0, 0));
-    //        DrawDebugLine(GetWorld(), previousNode, path[pointiter], FColor(255, 0, 0));
-    //        previousNode = path[pointiter];
-    //    }
-    //}
+{   
+
+    FNavPathSharedPtr path = GetPathFollowingComponent()->GetPath();
+
+    if(path)
+    {
+        TArray<FNavPathPoint>& pathPoints = path->GetPathPoints();
+        FVector previousNode = GetPawn()->GetActorLocation();
+        for (int pointiter = 0; pointiter < pathPoints.Num(); pointiter++)
+        {
+            DrawDebugSphere(GetWorld(), pathPoints[pointiter], 30.0f, 32, FColor(255, 0, 0));
+            DrawDebugLine(GetWorld(), previousNode, pathPoints[pointiter], FColor(255, 0, 0));
+            previousNode = pathPoints[pointiter];
+        }
+    }
 }
 
 void ASDTAIController::ChooseBehavior(float deltaTime)
