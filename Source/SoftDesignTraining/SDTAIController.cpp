@@ -39,18 +39,8 @@ FVector ASDTAIController::FindFleeLocation(APawn* selfPawn, bool &found, FVector
 
 void ASDTAIController::GoToBestTarget(float deltaTime)
 {
-
-    //TODO: Consider nav links in part 5
-    UNavigationSystemV1* navSys = UNavigationSystemV1::GetCurrent(GetWorld());
-    UNavigationPath* path = navSys->FindPathToLocationSynchronously(GetWorld(), GetPawn()->GetActorLocation(), target);
-
-    //Trying to send the path to PathFollowingComponenent
-    GetPathFollowingComponent()->RequestMove(FAIMoveRequest(GetPawn()), path->GetPath());
-
-    MoveCharacter(path);
+    MoveToLocation(target);
     ShowNavigationPath();
-
-    USDTPathFollowingComponent* pathFol = dynamic_cast<USDTPathFollowingComponent*>(GetPathFollowingComponent());
 }
 
 void ASDTAIController::OnMoveToTarget()
@@ -67,7 +57,6 @@ void ASDTAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFollow
 
 void ASDTAIController::ShowNavigationPath()
 {   
-
     FNavPathSharedPtr path = GetPathFollowingComponent()->GetPath();
 
     if(path)
@@ -221,27 +210,4 @@ ASDTCollectible* ASDTAIController::FindClosestCollectible()
     }
 
     return closestCollectible;
-}
-
-//Temporary function to move the character
-void ASDTAIController::MoveCharacter(UNavigationPath* path)
-{
-    FVector direction;
-
-    if (path->PathPoints.Num() < 3 || FVector::Distance(path->PathPoints[1], path->PathPoints[0]) > 95.0f)
-        direction = path->PathPoints[1] - GetPawn()->GetActorLocation();
-    else
-        direction = path->PathPoints[2] - GetPawn()->GetActorLocation();
-
-    direction.Normalize();
-
-    if (direction.Size() < 1)
-    {
-        direction /= direction.Size();
-    }
-
-
-    FVector newLoc = GetPawn()->GetActorLocation() + (direction * 2.5f);
-
-    GetPawn()->SetActorLocation(newLoc);
 }
