@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "SDTBaseAIController.h"
 #include "SDTCollectible.h"
+#include "PhysicsHelpers.h"
 #include "SDTAIController.generated.h"
 
 
@@ -57,6 +58,7 @@ protected:
     FVector FindFleeLocation(APawn* selfPawn, bool& found, FVector sphereLocation);
     float OffSet = 1450.f;
     float fleeSphereRadius = 1350.f;
+    bool IsVisibleAndReachable(APawn* selfPawn, AActor* actor, PhysicsHelpers& physicHelper, UWorld* world) const;
 
 private:
     virtual void GoToBestTarget(float deltaTime) override;

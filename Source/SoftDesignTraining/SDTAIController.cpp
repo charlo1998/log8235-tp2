@@ -9,6 +9,7 @@
 #include "DrawDebugHelpers.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "NavigationSystem.h"
+#include "PhysicsHelpers.h"
 //#include "UnrealMathUtility.h"
 #include "SDTUtils.h"
 #include "EngineUtils.h"
@@ -17,7 +18,7 @@
 ASDTAIController::ASDTAIController(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer.SetDefaultSubobjectClass<USDTPathFollowingComponent>(TEXT("PathFollowingComponent")))
 {
-
+    
 }
 
 FVector ASDTAIController::FindFleeLocation(APawn* selfPawn, bool &found, FVector sphereLocation)
@@ -116,8 +117,9 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
 
     FHitResult detectionHit;
     FVector sphereLocation;
+    PhysicsHelpers physicHelper(GetWorld());
     bool hit = GetHightestPriorityDetectionHit(allDetectionHits, detectionHit);
-    if (hit) //if a player is seen, update behavior
+    if (hit && IsVisibleAndReachable(selfPawn, mainCharacter, physicHelper, GetWorld())) //if a player is seen, update behavior
     {
         
         bool fleeLocationDetected = false;
@@ -170,20 +172,38 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
         {
             if (component->GetCollisionObjectType() == COLLISION_PLAYER)
             {
-                //we can't get more important than the player
+                
                 outDetectionHit = hit;
                 return true;
             }
-            //else if (component->GetCollisionObjectType() == COLLISION_COLLECTIBLE) //not needed, since we don't use vision to find collectibles anymore
-            //{
-
-            //    outDetectionHit = hit;
-            //    out = true;
-            //}
         }
     }
     return out;
 }
+
+ bool ASDTAIController::IsVisibleAndReachable(APawn* selfPawn, AActor* actor, PhysicsHelpers& physicHelper, UWorld* world) const
+ {
+     FVector selfPosition = selfPawn->GetActorLocation();
+     FVector actorPosition = actor->GetActorLocation();
+
+     FVector const toTarget = actorPosition - selfPosition;
+     FVector const chrForward = selfPawn->GetActorForwardVector();
+
+     // Cast a Ray from the character to the player and checks if there is anything in between
+     TArray<FHitResult> hitResults;
+     physicHelper.CastRay(selfPosition, actorPosition, hitResults, true, physicHelper.RayCastChannel::default);
+
+     bool canReach = true;
+
+     for (FHitResult hitResult : hitResults) {
+         // If any object (different from the agent or the collectible) is in between, change to unreachable
+         if (hitResult.GetActor() == actor || hitResult.GetActor() == selfPawn) continue;
+         canReach = false;
+         break;
+     }
+
+     return canReach;
+ }
 
 void ASDTAIController::AIStateInterrupted()
 {
