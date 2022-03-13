@@ -8,4 +8,5 @@
 void USDTAnimNotify_JumpStart::Notify(USkeletalMeshComponent * MeshComp, UAnimSequenceBase * Animation)
 {
     //Notify that the NPC has launched
+    Cast<ASDTAIController>(Cast<APawn>(MeshComp->GetOwner())->Controller)->AiJumpProgress += 0.1f;
 }
