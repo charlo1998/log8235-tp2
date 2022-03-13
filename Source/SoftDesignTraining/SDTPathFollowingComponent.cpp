@@ -24,6 +24,7 @@ void USDTPathFollowingComponent::FollowPathSegment(float deltaTime)
     else
     {
         Super::FollowPathSegment(deltaTime);
+        Speed = MovementComp->Velocity.Size();
     }
 }
 
