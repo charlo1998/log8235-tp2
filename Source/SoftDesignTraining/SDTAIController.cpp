@@ -10,6 +10,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "NavigationSystem.h"
 #include "PhysicsHelpers.h"
+#include <algorithm>
 //#include "UnrealMathUtility.h"
 #include "SDTUtils.h"
 #include "EngineUtils.h"
@@ -35,6 +36,7 @@ FVector ASDTAIController::FindFleeLocation(APawn* selfPawn, bool &found, FVector
             location = fleeLocation->GetActorLocation();
         }
     }
+    DrawDebugSphere(GetWorld(), sphereLocation, fleeSphereRadius, 100, FColor::Red);
     return location;
 }
 
@@ -113,24 +115,28 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
         
         bool fleeLocationDetected = false;
         //found a player, check if powered up and adapt
-        if (mainCharacter->IsPoweredUp())
+        if (mainCharacter->IsPoweredUp() && memory <= 0)
         {
             m_Pursuing = false;
             m_Fleeing = true;
+            memory = 150;
             //check for a flee location in a sphere behind agent, then compute path
             sphereLocation = selfPawn->GetActorLocation() - selfPawn->GetActorForwardVector() * OffSet;
-            DrawDebugSphere(GetWorld(), sphereLocation, fleeSphereRadius, 100, FColor::Red);
             target = FindFleeLocation(selfPawn, fleeLocationDetected, sphereLocation);
             
-
-            if (!fleeLocationDetected) //didn't find a flee location behind him, looking slightly to the left
+            FVector lateralOffset(1000.f, 0.f, 0.f);
+            if (!fleeLocationDetected) //didn't find a flee location behind him, looking slightly to the right and left
             {
-                sphereLocation = selfPawn->GetActorLocation() - selfPawn->GetActorRightVector() * OffSet;
-                DrawDebugSphere(GetWorld(), sphereLocation, fleeSphereRadius, 100, FColor::Red);
+                sphereLocation = selfPawn->GetActorLocation() - selfPawn->GetActorForwardVector() * OffSet + lateralOffset;
+                target = FindFleeLocation(selfPawn, fleeLocationDetected, sphereLocation);
+            }
+            else if (!fleeLocationDetected)
+            {
+                sphereLocation = selfPawn->GetActorLocation() - selfPawn->GetActorForwardVector() * OffSet - lateralOffset;
                 target = FindFleeLocation(selfPawn, fleeLocationDetected, sphereLocation);
             }
         }
-        else
+        else if (!mainCharacter->IsPoweredUp())
         {
             //compute path to player and go there
             target = playerCharacter->GetActorLocation();
@@ -143,12 +149,12 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
         target = FindClosestCollectible()->GetActorLocation();
     }
 
-    if ((selfPawn->GetActorLocation() - target).Size() <= 10.f) //if agent reached its target, go back to default state
+    if ((selfPawn->GetActorLocation() - target).Size() <= 200.f) //if agent reached its target, go back to default state
     {
         m_Pursuing = false;
         m_Fleeing = false;
     }
-
+    memory = std::max(0, memory - 1);
     DrawDebugCapsule(GetWorld(), detectionStartLocation + m_DetectionCapsuleHalfLength * selfPawn->GetActorForwardVector(), m_DetectionCapsuleHalfLength, m_DetectionCapsuleRadius, selfPawn->GetActorQuat() * selfPawn->GetActorUpVector().ToOrientationQuat(), FColor::Blue);
 }
 

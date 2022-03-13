@@ -56,8 +56,9 @@ protected:
     bool GetHightestPriorityDetectionHit(const TArray<FHitResult>& hits, FHitResult& outDetectionHit);
     void UpdatePlayerInteraction(float deltaTime);
     FVector FindFleeLocation(APawn* selfPawn, bool& found, FVector sphereLocation);
-    float OffSet = 1450.f;
-    float fleeSphereRadius = 1350.f;
+    float OffSet = 1700.f;
+    float fleeSphereRadius = 1650.f;
+    int memory = 0;
     bool IsVisibleAndReachable(APawn* selfPawn, AActor* actor, PhysicsHelpers& physicHelper, UWorld* world) const;
 
 private:
