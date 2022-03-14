@@ -55,6 +55,7 @@ public:
     virtual void OnMoveCompleted(FAIRequestID RequestID, const FPathFollowingResult& Result) override;
     void AIStateInterrupted();
     virtual bool Jump(FVector start, FVector end);
+    bool getReachedTarget();
 
 protected:
     void OnMoveToTarget();

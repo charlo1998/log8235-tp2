@@ -26,6 +26,10 @@ void USDTPathFollowingComponent::FollowPathSegment(float deltaTime)
     {
         Super::FollowPathSegment(deltaTime);
         Speed = MovementComp->Velocity.Size();
+        if (Cast<ASDTAIController>(GetOwner())->getReachedTarget())
+        {
+            Speed = 0;
+        }
     }
 }
 

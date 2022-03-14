@@ -205,6 +205,10 @@ void ASDTAIController::AIStateInterrupted()
     StopMovement();
     m_ReachedTarget = true;
 }
+bool ASDTAIController::getReachedTarget()
+{
+    return ((GetPawn()->GetActorLocation() - target).Size() <= 200.f);
+}
 
 ASDTCollectible* ASDTAIController::FindClosestCollectible()
 {
