@@ -40,9 +40,12 @@ FVector ASDTAIController::FindFleeLocation(APawn* selfPawn, bool &found, FVector
     return location;
 }
 
+//Part 2-3
 void ASDTAIController::GoToBestTarget(float deltaTime)
 {
+    //The navigation system will find a path to the target using the nav mesh
     MoveToLocation(target);
+    //Print path
     ShowNavigationPath();
 }
 
@@ -58,6 +61,8 @@ void ASDTAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFollow
     m_ReachedTarget = true;
 }
 
+//Part 2
+//Starting at the NPC location, print all the nodes and segments of the path
 void ASDTAIController::ShowNavigationPath()
 {   
     FNavPathSharedPtr path = GetPathFollowingComponent()->GetPath();
@@ -210,15 +215,18 @@ void ASDTAIController::AIStateInterrupted()
     m_ReachedTarget = true;
 }
 
+//Part 2
 ASDTCollectible* ASDTAIController::FindClosestCollectible()
 {
     FVector chrLocation = GetPawn()->GetActorLocation();
 
     ASDTCollectible* closestCollectible = NULL;
     float collectibleDistance = 0;
-
+    
+    //Get all the actors
     for (TActorIterator<AActor> actor(GetWorld()); actor; ++actor)
     {
+        //If the actor is a collectible, check if it is the closest
         if (ASDTCollectible* collectible = dynamic_cast<ASDTCollectible*>(*actor))
         {
             if (!collectible->IsOnCooldown())
@@ -242,6 +250,7 @@ ASDTCollectible* ASDTAIController::FindClosestCollectible()
     return closestCollectible;
 }
 
+//Part 5
 bool ASDTAIController::Jump(FVector start, FVector end) {
     AtJumpSegment = true;
 
