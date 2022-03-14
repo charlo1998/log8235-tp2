@@ -8,5 +8,5 @@
 void USDTAnimNotify_JumpEnd::Notify(USkeletalMeshComponent * MeshComp, UAnimSequenceBase * Animation)
 {
     //Notify that our NPC has landed
-    //Cast<ASDTAIController>(Cast<APawn>(MeshComp->GetOwner())->Controller)->AiJumpProgress = 0.0f;
+    Cast<ASDTAIController>(Cast<APawn>(MeshComp->GetOwner())->Controller)->AiJumpProgress = 0.0f;
 }

@@ -240,12 +240,15 @@ ASDTCollectible* ASDTAIController::FindClosestCollectible()
 
 bool ASDTAIController::Jump(FVector start, FVector end) {
     AtJumpSegment = true;
+    if (jumpingProgress == 0.0f)
+        AiJumpProgress = 0.1;//start jump animation
 
     FVector nextPosition= FVector( start.X + jumpingProgress * (end - start).X, start.Y + jumpingProgress * (end - start).Y, -2* JumpApexHeight * jumpingProgress * jumpingProgress + 2* JumpApexHeight* jumpingProgress + 216);
-    jumpingProgress += 0.01f;
+    jumpingProgress += 0.25f;
     if (jumpingProgress == 1)
     {
         jumpingProgress = 0;
+        AiJumpProgress = 1.0;//start landing animation
         AtJumpSegment = false;
     }
     APawn* selfPawn = GetPawn();

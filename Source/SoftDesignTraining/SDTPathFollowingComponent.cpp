@@ -26,8 +26,6 @@ void USDTPathFollowingComponent::FollowPathSegment(float deltaTime)
     {
         Super::FollowPathSegment(deltaTime);
         Speed = MovementComp->Velocity.Size();
-        if (GEngine)
-            GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, TEXT("no jump flag!"));
     }
 }
 
@@ -37,9 +35,6 @@ void USDTPathFollowingComponent::SetMoveSegment(int32 segmentStartIndex)
     const TArray<FNavPathPoint>& points = Path->GetPathPoints();
 
     const FNavPathPoint& segmentStart = points[MoveSegmentStartIndex];
-
-    if (GEngine)
-        GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::SanitizeFloat(segmentStart.Flags)); //81668
 
     if (segmentStart.Flags == 81668)
     {
