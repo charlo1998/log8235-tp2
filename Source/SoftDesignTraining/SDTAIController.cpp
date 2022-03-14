@@ -237,3 +237,18 @@ ASDTCollectible* ASDTAIController::FindClosestCollectible()
 
     return closestCollectible;
 }
+
+bool ASDTAIController::Jump(FVector start, FVector end) {
+    AtJumpSegment = true;
+
+    FVector nextPosition= FVector( start.X + jumpingProgress * (end - start).X, start.Y + jumpingProgress * (end - start).Y, -2* JumpApexHeight * jumpingProgress * jumpingProgress + 2* JumpApexHeight* jumpingProgress + 216);
+    jumpingProgress += 0.01f;
+    if (jumpingProgress == 1)
+    {
+        jumpingProgress = 0;
+        AtJumpSegment = false;
+    }
+    APawn* selfPawn = GetPawn();
+    selfPawn->SetActorLocation(nextPosition);
+    return AtJumpSegment;
+}

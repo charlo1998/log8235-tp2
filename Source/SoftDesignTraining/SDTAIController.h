@@ -49,10 +49,12 @@ public:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = AI)
     float AiJumpProgress = 0.0;
-
+private:
+    float jumpingProgress = 0.0f;
 public:
     virtual void OnMoveCompleted(FAIRequestID RequestID, const FPathFollowingResult& Result) override;
     void AIStateInterrupted();
+    virtual bool Jump(FVector start, FVector end);
 
 protected:
     void OnMoveToTarget();
