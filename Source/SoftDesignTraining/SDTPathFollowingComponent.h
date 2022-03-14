@@ -15,8 +15,8 @@ class SOFTDESIGNTRAINING_API USDTPathFollowingComponent : public UPathFollowingC
     GENERATED_UCLASS_BODY()
 
 public:
-    UPROPERTY(Category = "Following", VisibleAnywhere, BlueprintReadOnly)
     bool isJumping = false;
+    UPROPERTY(Category = "Following", VisibleAnywhere, BlueprintReadOnly)
     float Speed;
     virtual void FollowPathSegment(float deltaTime) override;
     virtual void SetMoveSegment(int32 segmentStartIndex) override;
