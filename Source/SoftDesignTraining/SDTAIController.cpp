@@ -96,6 +96,7 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
     if (!playerCharacter)
         return;
 
+    //collect objects in field of view
     FVector detectionStartLocation = selfPawn->GetActorLocation() + selfPawn->GetActorForwardVector() * m_DetectionCapsuleForwardStartingOffset;
     FVector detectionEndLocation = detectionStartLocation + selfPawn->GetActorForwardVector() * m_DetectionCapsuleHalfLength * 2;
 
@@ -110,27 +111,29 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
     FVector sphereLocation;
     PhysicsHelpers physicHelper(GetWorld());
     bool hit = GetHightestPriorityDetectionHit(allDetectionHits, detectionHit);
+
     if (hit && IsVisibleAndReachable(selfPawn, mainCharacter, physicHelper, GetWorld())) //if a player is seen, update behavior
     {
         
         bool fleeLocationDetected = false;
-        //found a player, check if powered up and adapt
+        //found a player, check if powered up and adapt behavior
         if (mainCharacter->IsPoweredUp() && memory <= 0)
         {
             m_Pursuing = false;
             m_Fleeing = true;
-            memory = 150;
+            memory = 150; //continue fleeing for a minimum amount of time before checking for a better flee location
+
             //check for a flee location in a sphere behind agent, then compute path
             sphereLocation = selfPawn->GetActorLocation() - selfPawn->GetActorForwardVector() * OffSet;
             target = FindFleeLocation(selfPawn, fleeLocationDetected, sphereLocation);
             
             FVector lateralOffset(1000.f, 0.f, 0.f);
-            if (!fleeLocationDetected) //didn't find a flee location behind him, looking slightly to the right and left
+            if (!fleeLocationDetected) //didn't find a flee location behind him, looking slightly to the right
             {
                 sphereLocation = selfPawn->GetActorLocation() - selfPawn->GetActorForwardVector() * OffSet + lateralOffset;
                 target = FindFleeLocation(selfPawn, fleeLocationDetected, sphereLocation);
             }
-            else if (!fleeLocationDetected)
+            else if (!fleeLocationDetected)//didn't find a flee location to the right, looking slightly to the left
             {
                 sphereLocation = selfPawn->GetActorLocation() - selfPawn->GetActorForwardVector() * OffSet - lateralOffset;
                 target = FindFleeLocation(selfPawn, fleeLocationDetected, sphereLocation);
@@ -154,6 +157,7 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
         m_Pursuing = false;
         m_Fleeing = false;
     }
+
     memory = std::max(0, memory - 1);
     DrawDebugCapsule(GetWorld(), detectionStartLocation + m_DetectionCapsuleHalfLength * selfPawn->GetActorForwardVector(), m_DetectionCapsuleHalfLength, m_DetectionCapsuleRadius, selfPawn->GetActorQuat() * selfPawn->GetActorUpVector().ToOrientationQuat(), FColor::Blue);
 }
@@ -240,15 +244,12 @@ ASDTCollectible* ASDTAIController::FindClosestCollectible()
 
 bool ASDTAIController::Jump(FVector start, FVector end) {
     AtJumpSegment = true;
-    if (jumpingProgress == 0.0f)
-        AiJumpProgress = 0.1;//start jump animation
 
     FVector nextPosition= FVector( start.X + jumpingProgress * (end - start).X, start.Y + jumpingProgress * (end - start).Y, -2* JumpApexHeight * jumpingProgress * jumpingProgress + 2* JumpApexHeight* jumpingProgress + 216);
-    jumpingProgress += 0.25f;
+    jumpingProgress += 0.01f;
     if (jumpingProgress == 1)
     {
         jumpingProgress = 0;
-        AiJumpProgress = 1.0;//start landing animation
         AtJumpSegment = false;
     }
     APawn* selfPawn = GetPawn();
