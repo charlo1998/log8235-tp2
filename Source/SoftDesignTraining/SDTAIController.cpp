@@ -1,57 +1,331 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "SDTAIController.h"
 #include "SoftDesignTraining.h"
-#include "SoftDesignTrainingMainCharacter.h"
 #include "SDTCollectible.h"
+#include "GroupManager.h"
 #include "SDTFleeLocation.h"
 #include "SDTPathFollowingComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Kismet/KismetMathLibrary.h"
-#include "NavigationSystem.h"
-#include "PhysicsHelpers.h"
-#include <algorithm>
 //#include "UnrealMathUtility.h"
 #include "SDTUtils.h"
 #include "EngineUtils.h"
 
+int ASDTAIController::aiCount = 0;
+int ASDTAIController::counter = 0;
+int ASDTAIController::lastUpdated = 0;
+
+double  ASDTAIController::chooseFleeTime = 0.0;
+double  ASDTAIController::updateTime = 0.0;
+double  ASDTAIController::detectionTime = 0.0;
+double  ASDTAIController::collectibleTime = 0.0;
+
+double  ASDTAIController::elapsedTime = 0.0;
 
 ASDTAIController::ASDTAIController(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer.SetDefaultSubobjectClass<USDTPathFollowingComponent>(TEXT("PathFollowingComponent")))
 {
+    m_PlayerInteractionBehavior = PlayerInteractionBehavior_Collect;
+}
+
+
+void ASDTAIController::BeginPlay()
+{
+    Super::BeginPlay();
+
+    // Get the number of AI
+    TArray<AActor*> FoundActors;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), GetPawn()->GetClass(), FoundActors);
+    aiCount = FoundActors.Num();
+
+    skippedDeltaTime = 0.0;
+}
+
+
+void ASDTAIController::Tick(float deltaTime)
+{
+    // TO-DO
+    // Here, the actors are always called in the same order, so the same actors are always updated and the others never are.
+    // Change for a queueing system where, once updated, an actor is queued (so that the other, further dequeued, actors are updated too).
+
+    // Keeps track of the number of AI we called up here.
+    counter++;
+    //GEngine->AddOnScreenDebugMessage(123, 50, FColor::Cyan, "lastUpdated  : " + FString::SanitizeFloat(lastUpdated));// / (double)aiCount));
+    // If the elapsed time until now is in our time budget, we do update the current AI.
+    if (elapsedTime < timeBudget && counter > lastUpdated) {
+
+        lastUpdated++;
+
+
+        double totalTimeStart = FPlatformTime::Seconds() * 1000000;
+        Super::Tick(deltaTime + skippedDeltaTime);
+
+        double totalTimeEnd = FPlatformTime::Seconds() * 1000000;
+
+        elapsedTime += totalTimeEnd - totalTimeStart;
+
+        skippedDeltaTime = 0.0;
+    }
+    // Else, we save the deltaTime skipped for when the AI will finally be updated.
+    else {
+        skippedDeltaTime += deltaTime;
+    }
+    PrintCPUTime();
+    if (lastUpdated >= aiCount)
+        lastUpdated = 0;
+    // When we are done going through all the AI (i.e. the current AI instance is the last AI to be called), we print the CPU time values.
+    if (counter >= aiCount) {
+        elapsedTime = 0.0;
+        counter = 0;
+    }
+}
+
+//void ASDTAIController::PrintCPUTime(bool resetValue)
+//{
+//    GEngine->AddOnScreenDebugMessage(20, 50, FColor::Cyan, "Elasped time  : " + FString::SanitizeFloat(elapsedTime));// / (double)aiCount));
+//    GEngine->AddOnScreenDebugMessage(4, -1, FColor::Green, "CPU time for choosing fleeing position : " + FString::SanitizeFloat(chooseFleeTime * 1000000));// / (double)aiCount));
+//    GEngine->AddOnScreenDebugMessage(3, -1, FColor::Purple, "CPU time for detection                 : " + FString::SanitizeFloat(detectionTime * 1000000));// / (double)aiCount));
+//    GEngine->AddOnScreenDebugMessage(2, -1, FColor::Yellow, "CPU time for choosing the collectible  : " + FString::SanitizeFloat(collectibleTime * 1000000));// / (double)aiCount));
+//    GEngine->AddOnScreenDebugMessage(1, -1, FColor::Red, "CPU time for update                    : " + FString::SanitizeFloat(updateTime * 1000000));// / (double)aiCount));
+//
+//    if (updateTime != 0.0) GEngine->AddOnScreenDebugMessage(5, 60, FColor::Red, "Last non null CPU time for update                    : " + FString::SanitizeFloat(updateTime * 1000000));
+//    if (detectionTime != 0.0) GEngine->AddOnScreenDebugMessage(6, 60, FColor::Purple, "Last non null CPU time for detection                 : " + FString::SanitizeFloat(detectionTime * 1000000));
+//    if (chooseFleeTime != 0.0) GEngine->AddOnScreenDebugMessage(7, 60, FColor::Green, "Last non null CPU time for choosing fleeing position : " + FString::SanitizeFloat(chooseFleeTime * 1000000));
+//    if (collectibleTime != 0.0) GEngine->AddOnScreenDebugMessage(8, 60, FColor::Yellow, "Last non null CPU time for choosing the collectible  : " + FString::SanitizeFloat(collectibleTime * 1000000));
+//
+//    if (resetValue)
+//    {
+//        chooseFleeTime = 0.0;
+//        updateTime = 0.0;
+//        detectionTime = 0.0;
+//        collectibleTime = 0.0;
+//    }
+//}
+
+void ASDTAIController::PrintCPUTime() {
+    DrawDebugString(GetWorld(), FVector(0.f, 0.f, 700.f), FString::SanitizeFloat(updateTime * 1000000), GetPawn(), FColor::Yellow, 0.01f, false);
+    DrawDebugString(GetWorld(), FVector(0.f, 0.f, 500.f), FString::SanitizeFloat(collectibleTime * 1000000), GetPawn(), FColor::Green, 0.005f, false);
+    DrawDebugString(GetWorld(), FVector(0.f, 0.f, 300.f), FString::SanitizeFloat(detectionTime * 1000000), GetPawn(), FColor::Blue, 0.003f, false);
+    DrawDebugString(GetWorld(), FVector(0.f, 0.f, 100.f), FString::SanitizeFloat(chooseFleeTime * 1000000), GetPawn(), FColor::Purple, 0.001f, false);
+    chooseFleeTime = 0.0;
+    updateTime = 0.0;
+    detectionTime = 0.0;
+    collectibleTime = 0.0;
+}
+
+
+void ASDTAIController::GoToBestTarget(float deltaTime)
+{
+    switch (m_PlayerInteractionBehavior)
+    {
+    case PlayerInteractionBehavior_Collect:
+
+        MoveToRandomCollectible();
+
+        break;
+
+    case PlayerInteractionBehavior_Chase:
+
+        MoveToPlayer();
+
+        break;
+
+    case PlayerInteractionBehavior_Flee:
+
+        MoveToBestFleeLocation();
+
+        break;
+    }
+}
+
+void ASDTAIController::MoveToRandomCollectible()
+{
+    float closestSqrCollectibleDistance = 18446744073709551610.f;
+    ASDTCollectible* closestCollectible = nullptr;
+
+    TArray<AActor*> foundCollectibles;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ASDTCollectible::StaticClass(), foundCollectibles);
+
+    while (foundCollectibles.Num() != 0)
+    {
+        int index = FMath::RandRange(0, foundCollectibles.Num() - 1);
+
+        ASDTCollectible* collectibleActor = Cast<ASDTCollectible>(foundCollectibles[index]);
+        if (!collectibleActor)
+            return;
+
+        if (!collectibleActor->IsOnCooldown())
+        {
+            MoveToLocation(foundCollectibles[index]->GetActorLocation(), 0.5f, false, true, true, NULL, false);
+            OnMoveToTarget();
+            return;
+        }
+        else
+        {
+            foundCollectibles.RemoveAt(index);
+        }
+    }
+}
+
+void ASDTAIController::MoveToPlayer()
+{
+    ACharacter * playerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+    if (!playerCharacter)
+        return;
+
+    MoveToActor(playerCharacter, 0.5f, false, true, true, NULL, false);
+    OnMoveToTarget();
+}
+
+void ASDTAIController::PlayerInteractionLoSUpdate()
+{
+    ACharacter * playerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+    if (!playerCharacter)
+        return;
+
+    TArray<TEnumAsByte<EObjectTypeQuery>> TraceObjectTypes;
+    TraceObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_WorldStatic));
+    TraceObjectTypes.Add(UEngineTypes::ConvertToObjectType(COLLISION_PLAYER));
+
+    FHitResult losHit;
+    GetWorld()->LineTraceSingleByObjectType(losHit, GetPawn()->GetActorLocation(), playerCharacter->GetActorLocation(), TraceObjectTypes);
+
+    bool hasLosOnPlayer = false;
+
+    if (losHit.GetComponent())
+    {
+        if (losHit.GetComponent()->GetCollisionObjectType() == COLLISION_PLAYER)
+        {
+            hasLosOnPlayer = true;
+        }
+    }
+
+    if (hasLosOnPlayer)
+    {
+        if (GetWorld()->GetTimerManager().IsTimerActive(m_PlayerInteractionNoLosTimer))
+        {
+            GetWorld()->GetTimerManager().ClearTimer(m_PlayerInteractionNoLosTimer);
+            m_PlayerInteractionNoLosTimer.Invalidate();
+            DrawDebugString(GetWorld(), FVector(0.f, 0.f, 10.f), "Got LoS", GetPawn(), FColor::Red, 5.f, false);
+        }
+    }
+    else
+    {
+        if (!GetWorld()->GetTimerManager().IsTimerActive(m_PlayerInteractionNoLosTimer))
+        {
+            GetWorld()->GetTimerManager().SetTimer(m_PlayerInteractionNoLosTimer, this, &ASDTAIController::OnPlayerInteractionNoLosDone, 3.f, false);
+            DrawDebugString(GetWorld(), FVector(0.f, 0.f, 10.f), "Lost LoS", GetPawn(), FColor::Red, 5.f, false);
+        }
+    }
     
 }
 
-FVector ASDTAIController::FindFleeLocation(APawn* selfPawn, bool &found, FVector sphereLocation)
+void ASDTAIController::OnPlayerInteractionNoLosDone()
 {
-    FVector location = selfPawn->GetActorLocation();
+    GetWorld()->GetTimerManager().ClearTimer(m_PlayerInteractionNoLosTimer);
+    DrawDebugString(GetWorld(), FVector(0.f, 0.f, 10.f), "TIMER DONE", GetPawn(), FColor::Red, 5.f, false);
 
-    TArray<AActor*> fleeLocations;
-    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ASDTFleeLocation::StaticClass(), fleeLocations);
-    for (const AActor* fleeLocation : fleeLocations)
+    if (!AtJumpSegment)
     {
-        if ((fleeLocation->GetActorLocation() - sphereLocation).Size() < fleeSphereRadius)
-        {
-            found = true;
-            location = fleeLocation->GetActorLocation();
-        }
+        AIStateInterrupted();
+        m_PlayerInteractionBehavior = PlayerInteractionBehavior_Collect;
     }
-    DrawDebugSphere(GetWorld(), sphereLocation, fleeSphereRadius, 100, FColor::Red);
-    return location;
 }
 
-//Part 2-3
-void ASDTAIController::GoToBestTarget(float deltaTime)
+bool ASDTAIController::playerPoweredUp()
 {
-    //The navigation system will find a path to the target using the nav mesh
-    MoveToLocation(target);
-    //Print path
-    ShowNavigationPath();
+    return SDTUtils::IsPlayerPoweredUp(GetWorld());
+}
+
+bool ASDTAIController::HasLos()
+{
+    ACharacter* playerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+    if (!playerCharacter)
+        return false;
+
+    TArray<TEnumAsByte<EObjectTypeQuery>> TraceObjectTypes;
+    TraceObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_WorldStatic));
+    TraceObjectTypes.Add(UEngineTypes::ConvertToObjectType(COLLISION_PLAYER));
+
+    FHitResult losHit;
+    GetWorld()->LineTraceSingleByObjectType(losHit, GetPawn()->GetActorLocation(), playerCharacter->GetActorLocation(), TraceObjectTypes);
+
+    bool hasLosOnPlayer = false;
+
+    if (losHit.GetComponent())
+    {
+        if (losHit.GetComponent()->GetCollisionObjectType() == COLLISION_PLAYER)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+void ASDTAIController::MoveToBestFleeLocation()
+{
+    float bestLocationScore = 0.f;
+    ASDTFleeLocation* bestFleeLocation = nullptr;
+
+    ACharacter* playerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+    if (!playerCharacter)
+        return;
+
+    for (TActorIterator<ASDTFleeLocation> actorIterator(GetWorld(), ASDTFleeLocation::StaticClass()); actorIterator; ++actorIterator)
+    {
+        ASDTFleeLocation* fleeLocation = Cast<ASDTFleeLocation>(*actorIterator);
+        if (fleeLocation)
+        {
+            float distToFleeLocation = FVector::Dist(fleeLocation->GetActorLocation(), playerCharacter->GetActorLocation());
+
+            FVector selfToPlayer = playerCharacter->GetActorLocation() - GetPawn()->GetActorLocation();
+            selfToPlayer.Normalize();
+
+            FVector selfToFleeLocation = fleeLocation->GetActorLocation() - GetPawn()->GetActorLocation();
+            selfToFleeLocation.Normalize();
+
+            float fleeLocationToPlayerAngle = FMath::RadiansToDegrees(acosf(FVector::DotProduct(selfToPlayer, selfToFleeLocation)));
+            float locationScore = distToFleeLocation + fleeLocationToPlayerAngle * 100.f;
+
+            if (locationScore > bestLocationScore)
+            {
+                bestLocationScore = locationScore;
+                bestFleeLocation = fleeLocation;
+            }
+
+            DrawDebugString(GetWorld(), FVector(0.f, 0.f, 10.f), FString::SanitizeFloat(locationScore), fleeLocation, FColor::Red, 5.f, false);
+        }
+    }
+
+    if (bestFleeLocation)
+    {
+        MoveToLocation(bestFleeLocation->GetActorLocation(), 0.5f, false, true, false, NULL, false);
+        OnMoveToTarget();
+    }
 }
 
 void ASDTAIController::OnMoveToTarget()
 {
     m_ReachedTarget = false;
+}
+
+void ASDTAIController::RotateTowards(const FVector& targetLocation)
+{
+    if (!targetLocation.IsZero())
+    {
+        FVector direction = targetLocation - GetPawn()->GetActorLocation();
+        FRotator targetRotation = direction.Rotation();
+
+        targetRotation.Yaw = FRotator::ClampAxis(targetRotation.Yaw);
+
+        SetControlRotation(targetRotation);
+    }
+}
+
+void ASDTAIController::SetActorLocation(const FVector& targetLocation)
+{
+    GetPawn()->SetActorLocation(targetLocation);
 }
 
 void ASDTAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFollowingResult& Result)
@@ -61,29 +335,26 @@ void ASDTAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFollow
     m_ReachedTarget = true;
 }
 
-//Part 2
-//Starting at the NPC location, print all the nodes and segments of the path
 void ASDTAIController::ShowNavigationPath()
-{   
-    FNavPathSharedPtr path = GetPathFollowingComponent()->GetPath();
-
-    if(path)
+{
+    if (UPathFollowingComponent* pathFollowingComponent = GetPathFollowingComponent())
     {
-        TArray<FNavPathPoint>& pathPoints = path->GetPathPoints();
-        FVector previousNode = GetPawn()->GetActorLocation();
-        for (int pointiter = 0; pointiter < pathPoints.Num(); pointiter++)
+        if (pathFollowingComponent->HasValidPath())
         {
-            DrawDebugSphere(GetWorld(), pathPoints[pointiter], 30.0f, 32, FColor(255, 0, 0));
-            DrawDebugLine(GetWorld(), previousNode, pathPoints[pointiter], FColor(255, 0, 0));
-            previousNode = pathPoints[pointiter];
+            const FNavPathSharedPtr path = pathFollowingComponent->GetPath();
+            TArray<FNavPathPoint> pathPoints = path->GetPathPoints();
+
+            for (int i = 0; i < pathPoints.Num(); ++i)
+            {
+                DrawDebugSphere(GetWorld(), pathPoints[i].Location, 10.f, 8, FColor::Yellow);
+
+                if (i != 0)
+                {
+                    DrawDebugLine(GetWorld(), pathPoints[i].Location, pathPoints[i - 1].Location, FColor::Yellow);
+                }
+            }
         }
     }
-}
-
-void ASDTAIController::ChooseBehavior(float deltaTime)
-{
-    //add states here? possible states: pursuing, fleeing, collecting collectible, default
-    UpdatePlayerInteraction(deltaTime);
 }
 
 void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
@@ -97,175 +368,143 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
         return;
 
     ACharacter* playerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-    ASoftDesignTrainingMainCharacter* mainCharacter = dynamic_cast<ASoftDesignTrainingMainCharacter*>(playerCharacter);
     if (!playerCharacter)
         return;
 
-    //collect objects in field of view
     FVector detectionStartLocation = selfPawn->GetActorLocation() + selfPawn->GetActorForwardVector() * m_DetectionCapsuleForwardStartingOffset;
     FVector detectionEndLocation = detectionStartLocation + selfPawn->GetActorForwardVector() * m_DetectionCapsuleHalfLength * 2;
 
     TArray<TEnumAsByte<EObjectTypeQuery>> detectionTraceObjectTypes;
-    detectionTraceObjectTypes.Add(UEngineTypes::ConvertToObjectType(COLLISION_COLLECTIBLE));
     detectionTraceObjectTypes.Add(UEngineTypes::ConvertToObjectType(COLLISION_PLAYER));
 
     TArray<FHitResult> allDetectionHits;
     GetWorld()->SweepMultiByObjectType(allDetectionHits, detectionStartLocation, detectionEndLocation, FQuat::Identity, detectionTraceObjectTypes, FCollisionShape::MakeSphere(m_DetectionCapsuleRadius));
 
     FHitResult detectionHit;
-    FVector sphereLocation;
-    PhysicsHelpers physicHelper(GetWorld());
-    bool hit = GetHightestPriorityDetectionHit(allDetectionHits, detectionHit);
+    GetHightestPriorityDetectionHit(allDetectionHits, detectionHit);
 
-    if (hit && IsVisibleAndReachable(selfPawn, mainCharacter, physicHelper, GetWorld())) //if a player is seen, update behavior
-    {
-        
-        bool fleeLocationDetected = false;
-        //found a player, check if powered up and adapt behavior
-        if (mainCharacter->IsPoweredUp() && memory <= 0)
-        {
-            m_Pursuing = false;
-            m_Fleeing = true;
-            memory = 150; //continue fleeing for a minimum amount of time before checking for a better flee location
+    UpdatePlayerInteractionBehavior(detectionHit, deltaTime);
 
-            //check for a flee location in a sphere behind agent, then compute path
-            sphereLocation = selfPawn->GetActorLocation() - selfPawn->GetActorForwardVector() * OffSet;
-            target = FindFleeLocation(selfPawn, fleeLocationDetected, sphereLocation);
-            
-            FVector lateralOffset(1000.f, 0.f, 0.f);
-            if (!fleeLocationDetected) //didn't find a flee location behind him, looking slightly to the right
-            {
-                sphereLocation = selfPawn->GetActorLocation() - selfPawn->GetActorForwardVector() * OffSet + lateralOffset;
-                target = FindFleeLocation(selfPawn, fleeLocationDetected, sphereLocation);
-            }
-            else if (!fleeLocationDetected)//didn't find a flee location to the right, looking slightly to the left
-            {
-                sphereLocation = selfPawn->GetActorLocation() - selfPawn->GetActorForwardVector() * OffSet - lateralOffset;
-                target = FindFleeLocation(selfPawn, fleeLocationDetected, sphereLocation);
-            }
-        }
-        else if (!mainCharacter->IsPoweredUp())
-        {
-            //compute path to player and go there
-            target = playerCharacter->GetActorLocation();
-            m_Pursuing = true;
-            m_Fleeing = false;
-        }
-    }
-    else if (!m_Fleeing && !m_Pursuing) //if no player is seen and agent is not fleeing or pursuing the last location, find the closest collectible
+    if (GetMoveStatus() == EPathFollowingStatus::Idle)
     {
-        target = FindClosestCollectible()->GetActorLocation();
+        m_ReachedTarget = true;
     }
 
-    if ((selfPawn->GetActorLocation() - target).Size() <= 200.f) //if agent reached its target, go back to default state
+    FString debugString = "";
+
+    switch (m_PlayerInteractionBehavior)
     {
-        m_Pursuing = false;
-        m_Fleeing = false;
+    case PlayerInteractionBehavior_Chase:
+        debugString = "Chase";
+        break;
+    case PlayerInteractionBehavior_Flee:
+        debugString = "Flee";
+        break;
+    case PlayerInteractionBehavior_Collect:
+        debugString = "Collect";
+        break;
     }
 
-    memory = std::max(0, memory - 1);
+    DrawDebugString(GetWorld(), FVector(0.f, 0.f, 5.f), debugString, GetPawn(), FColor::Orange, 0.f, false);
+
     DrawDebugCapsule(GetWorld(), detectionStartLocation + m_DetectionCapsuleHalfLength * selfPawn->GetActorForwardVector(), m_DetectionCapsuleHalfLength, m_DetectionCapsuleRadius, selfPawn->GetActorQuat() * selfPawn->GetActorUpVector().ToOrientationQuat(), FColor::Blue);
 }
 
- bool ASDTAIController::GetHightestPriorityDetectionHit(const TArray<FHitResult>& hits, FHitResult& outDetectionHit)
+bool ASDTAIController::HasLoSOnHit(const FHitResult& hit)
 {
-    bool out = false;
-    for (const FHitResult& hit : hits)
-    {
-        if (UPrimitiveComponent* component = hit.GetComponent())
-        {
-            if (component->GetCollisionObjectType() == COLLISION_PLAYER)
-            {
-                
-                outDetectionHit = hit;
-                return true;
-            }
-        }
-    }
-    return out;
+    if (!hit.GetComponent())
+        return false;
+
+    TArray<TEnumAsByte<EObjectTypeQuery>> TraceObjectTypes;
+    TraceObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_WorldStatic));
+
+    FVector hitDirection = hit.ImpactPoint - hit.TraceStart;
+    hitDirection.Normalize();
+
+    FHitResult losHit;
+    FCollisionQueryParams queryParams = FCollisionQueryParams();
+    queryParams.AddIgnoredActor(hit.GetActor());
+
+    GetWorld()->LineTraceSingleByObjectType(losHit, hit.TraceStart, hit.ImpactPoint + hitDirection, TraceObjectTypes, queryParams);
+
+    return losHit.GetActor() == nullptr;
 }
-
- bool ASDTAIController::IsVisibleAndReachable(APawn* selfPawn, AActor* actor, PhysicsHelpers& physicHelper, UWorld* world) const
- {
-     FVector selfPosition = selfPawn->GetActorLocation();
-     FVector actorPosition = actor->GetActorLocation();
-
-     FVector const toTarget = actorPosition - selfPosition;
-     FVector const chrForward = selfPawn->GetActorForwardVector();
-
-     // Cast a Ray from the character to the player and checks if there is anything in between
-     TArray<FHitResult> hitResults;
-     physicHelper.CastRay(selfPosition, actorPosition, hitResults, true, physicHelper.RayCastChannel::default);
-
-     bool canReach = true;
-
-     for (FHitResult hitResult : hitResults) {
-         // If any object (different from the agent or the collectible) is in between, change to unreachable
-         if (hitResult.GetActor() == actor || hitResult.GetActor() == selfPawn) continue;
-         canReach = false;
-         break;
-     }
-
-     return canReach;
- }
 
 void ASDTAIController::AIStateInterrupted()
 {
     StopMovement();
     m_ReachedTarget = true;
 }
-bool ASDTAIController::getReachedTarget()
+
+ASDTAIController::PlayerInteractionBehavior ASDTAIController::GetCurrentPlayerInteractionBehavior(const FHitResult& hit)
 {
-    return ((GetPawn()->GetActorLocation() - target).Size() <= 200.f);
+    if (m_PlayerInteractionBehavior == PlayerInteractionBehavior_Collect)
+    {
+        if (!hit.GetComponent())
+            return PlayerInteractionBehavior_Collect;
+
+        if (hit.GetComponent()->GetCollisionObjectType() != COLLISION_PLAYER)
+            return PlayerInteractionBehavior_Collect;
+
+        if (!HasLoSOnHit(hit))
+            return PlayerInteractionBehavior_Collect;
+
+        return SDTUtils::IsPlayerPoweredUp(GetWorld()) ? PlayerInteractionBehavior_Flee : PlayerInteractionBehavior_Chase;
+    }
+    else
+    {
+        PlayerInteractionLoSUpdate();
+
+        return SDTUtils::IsPlayerPoweredUp(GetWorld()) ? PlayerInteractionBehavior_Flee : PlayerInteractionBehavior_Chase;
+    }
 }
 
-//Part 2
-ASDTCollectible* ASDTAIController::FindClosestCollectible()
+void ASDTAIController::GetHightestPriorityDetectionHit(const TArray<FHitResult>& hits, FHitResult& outDetectionHit)
 {
-    FVector chrLocation = GetPawn()->GetActorLocation();
-
-    ASDTCollectible* closestCollectible = NULL;
-    float collectibleDistance = 0;
-    
-    //Get all the actors
-    for (TActorIterator<AActor> actor(GetWorld()); actor; ++actor)
+    for (const FHitResult& hit : hits)
     {
-        //If the actor is a collectible, check if it is the closest
-        if (ASDTCollectible* collectible = dynamic_cast<ASDTCollectible*>(*actor))
+        if (UPrimitiveComponent* component = hit.GetComponent())
         {
-            if (!collectible->IsOnCooldown())
+            if (component->GetCollisionObjectType() == COLLISION_PLAYER)
             {
-                float distance = FVector::Dist(chrLocation, collectible->GetActorLocation());
-                if (closestCollectible == NULL)
-                {
-                    closestCollectible = collectible;
-                    collectibleDistance = distance;
-                }
-                else if (distance < collectibleDistance)
-                {
-                    closestCollectible = collectible;
-                    collectibleDistance = distance;
-                }
+                //we can't get more important than the player
+                outDetectionHit = hit;
+                return;
             }
-                
+            else if(component->GetCollisionObjectType() == COLLISION_COLLECTIBLE)
+            {
+                outDetectionHit = hit;
+            }
         }
     }
-
-    return closestCollectible;
 }
 
-//Part 5
-bool ASDTAIController::Jump(FVector start, FVector end) {
-    AtJumpSegment = true;
+void ASDTAIController::UpdatePlayerInteractionBehavior(const FHitResult& detectionHit, float deltaTime)
+{
+    PlayerInteractionBehavior currentBehavior = GetCurrentPlayerInteractionBehavior(detectionHit);
+    if (m_GroupManager == NULL)
+        FindGroupManager();
 
-    FVector nextPosition= FVector( start.X + jumpingProgress * (end - start).X, start.Y + jumpingProgress * (end - start).Y, -2* JumpApexHeight * jumpingProgress * jumpingProgress + 2* JumpApexHeight* jumpingProgress + 216);
-    jumpingProgress += 0.01f;
-    if (jumpingProgress == 1)
+    if (currentBehavior != m_PlayerInteractionBehavior)
     {
-        jumpingProgress = 0;
-        AtJumpSegment = false;
+        if (m_GroupManager && currentBehavior == PlayerInteractionBehavior_Chase)
+            dynamic_cast<AGroupManager*>(m_GroupManager)->AddCharacterToGroup(GetPawn());
+        else if (m_GroupManager && currentBehavior != PlayerInteractionBehavior_Chase)
+            dynamic_cast<AGroupManager*>(m_GroupManager)->RemoveCharacterFromGroup(GetPawn());
+
+        m_PlayerInteractionBehavior = currentBehavior;
+        AIStateInterrupted();
     }
-    APawn* selfPawn = GetPawn();
-    selfPawn->SetActorLocation(nextPosition);
-    return AtJumpSegment;
 }
+
+void ASDTAIController::FindGroupManager()
+{
+    for (TActorIterator<AActor> actor(GetWorld()); actor; ++actor)
+    {
+        if (AGroupManager* groupManager = dynamic_cast<AGroupManager*>(*actor))
+        {
+            m_GroupManager = groupManager;
+        }
+    }
+}
+
